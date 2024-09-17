@@ -1,0 +1,12 @@
+/**
+ * MAP pricing additions for Stylesheet
+ *
+ * @copyright Copyright 2003-2006 Zen Cart Development Team
+ * @license http://www.zen-cart.com/license/2_0.txt GNU Public License V2.0
+ */
+
+/*Map Pricing by SlickRicky Design : http://www.slickricky.com */
+.map_pricing {
+	color: #FF0000;
+	font-weight: bold;
+}
