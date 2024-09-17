@@ -75,9 +75,21 @@ class MapMinimumAdvertisedPriceCatalog extends base
         global $db;
 
         $skipAddingMessage = false;
+        $is_map_enabled = false;
 
         if (!empty($param1['products_id'])) {
             $this->product_id = (int)$param1['products_id'];
+        }
+
+        if (!empty($this->product_id)) {
+            $query = "SELECT map_enabled, map_price FROM " . TABLE_PRODUCTS . " WHERE products_id = " . (int)$this->product_id;
+            $result = $db->Execute($query, 1);
+            $is_map_enabled = ($result->fields['map_enabled'] ?? 0) > 0;
+            $map_price = convertToFloat($result->fields['map_price'] ?? 0);
+        }
+
+        if (!$is_map_enabled) {
+            return;
         }
 
         if ($eventID === 'NOTIFY_ZEN_GET_PRODUCTS_DISPLAY_PRICE_SALE') {
@@ -103,17 +115,10 @@ class MapMinimumAdvertisedPriceCatalog extends base
             $skipAddingMessage = true; // don't set MAP message in this case, else it may be duplicated since it is already set for DISPLAY_PRICE_NORMAL
         }
 
-        if (!empty($this->product_id) && !$skipAddingMessage) {
-            $query = "SELECT map_enabled, map_price FROM " . TABLE_PRODUCTS . " WHERE products_id = " . (int)$this->product_id;
-            $result = $db->Execute($query, 1);
-            $is_map_enabled = ($result->fields['map_enabled'] ?? 0) > 0;
-            $map_price = $result->fields['map_price'] ?? '';
-
-            if ($is_map_enabled) {
-                $param3 = $this->default_MAP_message;
-                if ($map_price > 0) {
-                    $param3 = '<span class="map_pricing">$' . round($map_price, 2) . ' ' . MAP_PRICE_STORE_FRONT_TEXT_WITH_MAP_PRICE_DISPLAYED . '</span>';
-                }
+        if (!$skipAddingMessage) {
+            $param3 = $this->default_MAP_message;
+            if (!empty($map_price)) {
+                $param3 = '<span class="map_pricing">$' . round($map_price, 2) . ' ' . MAP_PRICE_STORE_FRONT_TEXT_WITH_MAP_PRICE_DISPLAYED . '</span>';
             }
         }
     }
