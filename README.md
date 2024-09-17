@@ -2,7 +2,7 @@
 
 MAP Pricing = Manufacturer's Advertised Price. 
 
-This is a revamped version of MAP Pricing v1.0 by Richard Kersey (www.slickricky.com).   
+This is a repackaged version of MAP Pricing v1.0 by Richard Kersey (www.slickricky.com).   
 
 It is used when you want to sell something for a price that is lower than what you are able to advertise on your website.  The actual price will only display after adding the product to the cart.
 
