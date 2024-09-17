@@ -69,38 +69,41 @@ class MapMinimumAdvertisedPriceCatalog extends base
      *       function named specifically for those, in this observer.
      *       This is intentional because all 4 of those hooks use shared parameters/logic patterns.
      */
-    public function update(&$class, $eventID, $param1, &$param2, &$param3, &$param4, &$param5): void
+    public function update(&$class, $eventID, $param1, &$isHandled, &$param3, &$param4, &$param5): void
     {
         /** @var queryFactory $db */
         global $db;
+
+        $skipAddingMessage = false;
 
         if (!empty($param1['products_id'])) {
             $this->product_id = (int)$param1['products_id'];
         }
 
         if ($eventID === 'NOTIFY_ZEN_GET_PRODUCTS_DISPLAY_PRICE_SALE') {
-            $param2 = true; // $pricing_handled
+            $isHandled = true; // $pricing_handled
             $param3 = ''; // $show_sale_discount
         }
         if ($eventID === 'NOTIFY_ZEN_GET_PRODUCTS_DISPLAY_PRICE_SPECIAL') {
-            $param2 = true; // $pricing_handled
+            $isHandled = true; // $pricing_handled
             $param3 = ''; // $show_normal_price
             $param4 = ''; // $show_special_price
             $param5 = ''; // $show_sale_price
         }
         if ($eventID === 'NOTIFY_ZEN_GET_PRODUCTS_DISPLAY_PRICE_NORMAL') {
-            $param2 = true; // $pricing_handled
+            $isHandled = true; // $pricing_handled
             $param3 = ''; // $show_normal_price
             $param4 = ''; // $show_special_price
             $param5 = ''; // $show_sale_price
         }
         if ($eventID === 'NOTIFY_ZEN_GET_PRODUCTS_DISPLAY_PRICE_FREE_OR_CALL') {
-            $param2 = true; // $tags_handled
+            $isHandled = true; // $tags_handled
             $param3 = ''; // $free_tag
             $param4 = ''; // $call_tag
+            $skipAddingMessage = true; // don't set MAP message in this case, else it may be duplicated since it is already set for DISPLAY_PRICE_NORMAL
         }
 
-        if (!empty($this->product_id)) {
+        if (!empty($this->product_id) && !$skipAddingMessage) {
             $query = "SELECT map_enabled, map_price FROM " . TABLE_PRODUCTS . " WHERE products_id = " . (int)$this->product_id;
             $result = $db->Execute($query, 1);
             $is_map_enabled = ($result->fields['map_enabled'] ?? 0) > 0;
