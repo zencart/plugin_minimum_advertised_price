@@ -2,36 +2,32 @@
 /**
  * @copyright Copyright 2003-2024 Zen Cart Development Team
  * @license http://www.zen-cart.com/license/2_0.txt GNU Public License V2.0
- * @version $Id: DrByte 2024-09-17   $
+ * @version $Id: Last updated by DrByte 2024-09-17   $
  *
  * Original concept MAP Pricing contributed by SlickRicky Design : http://www.slickricky.com
  *
- * Designed for v2.1.0+ (depends on plugin directory lookup capabilities added in v2.1.0 )
+ * Designed for v2.1.0+ (depends on InteractsWithPlugins trait added in v2.1.0 )
  */
 
-use App\Models\PluginControl;
-use App\Models\PluginControlVersion;
-use Zencart\PluginManager\PluginManager;
+use Zencart\Traits\InteractsWithPlugins;
+use Zencart\Traits\NotifierManager;
+use Zencart\Traits\ObserverManager;
 
-class MapMinimumAdvertisedPriceCatalog extends base
+class MapMinimumAdvertisedPriceCatalog
 {
+    use InteractsWithPlugins;
+    use NotifierManager;
+    use ObserverManager;
+
     protected bool $enabled = true;
-    protected bool $show_map_prices_in_admin_listing = false;
 
     protected ?int $product_id = null;
     protected string $default_MAP_message;
-    protected string $zcPluginDir;
-    protected string $plugin_name = 'MAP-Pricing';
 
 
     public function __construct()
     {
         if (!$this->enabled) {
-            return;
-        }
-
-        // @TODO - this feature is not implemented yet (needs reworking output for admin table columns, instead of customer-facing messaging)
-        if (IS_ADMIN_FLAG && !$this->show_map_prices_in_admin_listing) {
             return;
         }
 
@@ -49,20 +45,14 @@ class MapMinimumAdvertisedPriceCatalog extends base
         ]);
 
         defined('MAP_PRICE_STORE_FRONT_TEXT') || define('MAP_PRICE_STORE_FRONT_TEXT', "Priced so low, we're not able to advertise it. Add to cart for price.");
-        defined('MAP_PRICE_STORE_FRONT_TEXT_WITH_MAP_PRICE_DISPLAYED') || define('MAP_PRICE_STORE_FRONT_TEXT_WITH_MAP_PRICE_DISPLAYED', "For an even lower price, add to cart.");
+        defined('MAP_PRICE_STORE_FRONT_TEXT_WITH_MAP_PRICE_DISPLAYED') || define('MAP_PRICE_STORE_FRONT_TEXT_WITH_MAP_PRICE_DISPLAYED', "%s For an even lower price, add to cart.");
 
         $this->default_MAP_message = '<span class="map_pricing">' . MAP_PRICE_STORE_FRONT_TEXT . '</span>';
 
         /**
-         * Determine this zc_plugin's installed directory; used to attach CSS hrefs
+         * Determine this zc_plugin's paths: $this->zcPluginCatalogPath is used to attach CSS hrefs
          */
-        $plugin_manager = new PluginManager(new PluginControl(), new PluginControlVersion());
-        $this->zcPluginDir = str_replace(
-            DIR_FS_CATALOG,
-            '',
-            $plugin_manager->getPluginVersionDirectory($this->plugin_name, $plugin_manager->getInstalledPlugins()) . 'catalog/'
-        );
-
+        $this->detectZcPluginDetails(__DIR__);
     }
 
     /* Note: This update() method fires for all the DISPLAY_PRICE notifiers, because there is no
@@ -71,8 +61,9 @@ class MapMinimumAdvertisedPriceCatalog extends base
      */
     public function update(&$class, $eventID, $param1, &$isHandled, &$param3, &$param4, &$param5): void
     {
+        /** @var currencies $currencies */
         /** @var queryFactory $db */
-        global $db;
+        global $db, $currencies;
 
         $skipAddingMessage = false;
         $is_map_enabled = false;
@@ -81,11 +72,14 @@ class MapMinimumAdvertisedPriceCatalog extends base
             $this->product_id = (int)$param1['products_id'];
         }
 
+        $products_tax_rate = zen_get_tax_rate($param1['products_tax_class_id'] ?? 0);
+
         if (!empty($this->product_id)) {
             $query = "SELECT map_enabled, map_price FROM " . TABLE_PRODUCTS . " WHERE products_id = " . (int)$this->product_id;
             $result = $db->Execute($query, 1);
             $is_map_enabled = ($result->fields['map_enabled'] ?? 0) > 0;
             $map_price = convertToFloat($result->fields['map_price'] ?? 0);
+            $map_price_formatted = $currencies->display_price($map_price, $products_tax_rate);
         }
 
         if (!$is_map_enabled) {
@@ -118,7 +112,7 @@ class MapMinimumAdvertisedPriceCatalog extends base
         if (!$skipAddingMessage) {
             $param3 = $this->default_MAP_message;
             if (!empty($map_price)) {
-                $param3 = '<span class="map_pricing">$' . round($map_price, 2) . ' ' . MAP_PRICE_STORE_FRONT_TEXT_WITH_MAP_PRICE_DISPLAYED . '</span>';
+                $param3 = '<span class="map_pricing">' . sprintf(MAP_PRICE_STORE_FRONT_TEXT_WITH_MAP_PRICE_DISPLAYED, '<span class="map_price">' . $map_price_formatted . '</span>') . '</span>';
             }
         }
     }
@@ -127,32 +121,8 @@ class MapMinimumAdvertisedPriceCatalog extends base
      * Catalog: Runs at the end of the active template's html_header.php (just before the </head> tag)
      * Enables the plugin's CSS file to be inserted.
      */
-    protected function notify_html_head_end(&$class, string $current_page_base): void
+    public function notify_html_head_end(&$class, $eventID, string $current_page_base): void
     {
-        global $template;
-
-        $stylesheet = 'map_pricing.css';
-        echo '<link rel="stylesheet" href="' . $this->getZcPluginDir() . DIR_WS_TEMPLATES . "default/css/$stylesheet" . '">' . "\n";
-
-//        // legacy support for old v2 css filename
-//        $stylesheet = 'stylesheet_map_addition.css';
-//        $stylesheet_dir = $template->get_template_dir($stylesheet, DIR_WS_TEMPLATE, $current_page_base, 'css');
-//        if (strpos($stylesheet_dir, $this->getZcPluginDir()) === false && file_exists($stylesheet_dir . $stylesheet)) {
-//            echo '<link rel="stylesheet" href="' . $stylesheet_dir . $stylesheet . '">' . "\n";
-//        }
-//        $stylesheet = 'map_pricing.css';
-
-        $stylesheet_dir = $template->get_template_dir($stylesheet, DIR_WS_TEMPLATE, $current_page_base, 'css');
-        if (!str_contains($stylesheet_dir, $this->getZcPluginDir()) && file_exists($stylesheet_dir . $stylesheet)) {
-            echo '<link rel="stylesheet" href="' . $stylesheet_dir . $stylesheet . '">' . "\n";
-        }
-    }
-
-    /**
-     * Return the plugin's currently-installed zc_plugin directory for the catalog.
-     */
-    public function getZcPluginDir(): string
-    {
-        return $this->zcPluginDir;
+        $this->linkCatalogStylesheet('map_pricing.css', $current_page_base);
     }
 }

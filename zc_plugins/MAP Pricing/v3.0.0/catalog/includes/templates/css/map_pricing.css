@@ -1,0 +1,25 @@
+/**
+ * MAP pricing additions for Stylesheet
+ *
+ * @license GNU Public License V2.0
+ */
+/* Original concept MAP Pricing by SlickRicky Design : http://www.slickricky.com */
+
+.map_pricing {
+	color: #FF0000;
+	font-weight: bold;
+}
+
+.map_price {
+    color: black;
+    font-weight: normal;
+    display: block;
+    padding-bottom: 4px;
+}
+
+#productPrices .map_pricing {
+    display: block;
+    width: 70%;
+    margin-left: auto;
+    margin-right: auto;
+}
