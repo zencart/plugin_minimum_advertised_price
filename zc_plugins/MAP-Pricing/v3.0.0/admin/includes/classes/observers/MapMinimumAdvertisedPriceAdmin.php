@@ -54,8 +54,8 @@ class MapMinimumAdvertisedPriceAdmin extends base
         // NOTE: $data = ['action' => $action, 'products_id' => $products_id]
 
         $sql_data_array = [
-            'map_enabled' => zen_db_prepare_input((int)$_POST['map_enabled']),
-            'map_price' => convertToFloat($_POST['map_price']),
+            'map_enabled' => zen_db_prepare_input((int)($_POST['map_enabled'] ?? 0)),
+            'map_price' => convertToFloat($_POST['map_price'] ?? '0'),
         ];
         zen_db_perform(TABLE_PRODUCTS, $sql_data_array, 'update', 'products_id = ' . (int)$data['products_id']);
     }
